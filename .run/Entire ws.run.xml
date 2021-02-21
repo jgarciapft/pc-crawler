@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Entire ws" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="Crawler" />
+    <module name="pc-crawler.main" />
+    <option name="PROGRAM_PARAMETERS" value="." />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/main/resources/crawler-sandbox" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

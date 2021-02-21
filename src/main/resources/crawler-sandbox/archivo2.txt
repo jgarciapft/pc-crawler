@@ -1,0 +1,18 @@
+En este documento se detalla el proceso seguido para instalar y configurar el entorno de desarrollo que utilizaré para realizar las prácticas de la asignatura. Todas las decisiones tomadas están basadas en mis preferencias y experiencia con software complementario y/o alternativo al propuesto inicialmente por el profesor, pero en todo caso compatible con los requisitos básicos establecidos en la documentación oficial de las prácticas.
+ 
+El entorno elegido está dirigido principalmente a minimizar riesgos de incompatibilidades y errores a la hora de instalar Oracle Database, ya que por experiencia de la asignatura de Diseño y Administración de Bases de Datos sé que es particularmente complicado instalar y configurar este software concreto en Windows 10, y secundariamente a incrementar la eficiencia y la productividad. Así utilizaré el software de virtualización Docker, ejecutándose en WSL2, para crear una imagen basada en Linux que contenga la instalación de Oracle Database. La imagen se instanciará como un contenedor Docker parametrizado con el puerto del socket para conectarse al servicio de la BD, la contraseña del usuario raíz y el volumen local para persistir la base de datos. Como IDE he elegido IntelliJ IDEA porque permite integrar la vista de la base de datos con la vista del código Java y así gestionar toda la información en un solo programa, tiene una buena integración con JDBC y ya dispongo de 3 años de experiencia previa.
+ 
+En total se necesita configurar dos equipos de prestaciones y características similares. Un ordenador de escritorio y otro portátil, ambos con sistema operativo Windows 10 Pro (Versión 2004) de 64 bits, procesador Intel, 16Gb de memoria RAM y almacenamiento SSD. Ambas instalaciones de Windows 10 comparten los mismos programas, configuraciones y ficheros, por lo comparten todo el proceso de preparación el entorno. 
+ 
+Este documento debe servir de guía de instalación para lograr un entorno idéntico en equipos de características similares.
+ 
+Los paquetes software que se incluyen en este documento son:
+ 
+•	Oracle Database 18c Express Edition (64 bits) como Sistema Gestor de Bases de Datos (SGBD) 
+o	Versión: 18.4.0
+•	Windows Subsystem for Linux versión 2 (WSL2)
+o	Versión del kernel: Linux 4.19.104-microsoft-standard
+•	Docker for Windows (64 bits) como software de virtualización
+o	Versión: 19.03.8, build afacb8b7f0
+•	IntelliJ IDEA Ultimate 2020 (64 bits) como IDE
+o	Versión: 2020.2.3

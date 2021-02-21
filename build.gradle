@@ -1,0 +1,27 @@
+/*
+ * RIBW 2020/21 - ACTIVIDAD 2: Inicio de un PC-Crawler
+ *
+ * Autor: Juan Pablo García Plaza Pérez (jgarciapft@alumnos.unex.es)
+ */
+
+plugins {
+    id 'java-library'
+    id 'com.github.johnrengelman.shadow' version '6.1.0'
+}
+
+group 'unex.es.giiis'
+version '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "org.apache.commons:commons-lang3:3.11"
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'Crawler'
+    }
+}

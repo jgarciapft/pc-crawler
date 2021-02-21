@@ -1,0 +1,7 @@
+Este documento recoge el proceso de resolución de los ejercicios propuestos en el guion de la sesión 1 de prácticas, así como cualquier otra modificación del código proporcionado por el profesor.
+
+REQUISITOS PREVIOS
+ 
+Se presupone que el entorno ha sido configurado de acuerdo con la documentación de la Práctica 00: se dispone de un contenedor Docker configurado con una instancia de Oracle Database 18c Express Edition, de una instalación configurada de IDEA Ultimate y de un nuevo proyecto de IDEA Ultimate configurado para acceder a la instancia de Oracle Database y para utilizar la librería JDBC.
+ 
+Se presupone que la instancia de Oracle Database se encuentra en el estado final después de seguir al completo la documentación de la Práctica 00, donde se insertan y borran las tablas de EMPLEADOS y DEPARTAMENTOS. Por lo tanto, para realizar los ejercicios propuestos en el guion es necesario ejecutar de nuevo el script 2-Insertar.sql para añadir y poblar de nuevo las tablas EMPLEADOS y DEPARTAMENTOS.
