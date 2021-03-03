@@ -2,6 +2,8 @@ package es.unex.giiis.ribw.jgarciapft;
 
 import es.unex.giiis.ribw.jgarciapft.loaders.IDictionaryLoader;
 import es.unex.giiis.ribw.jgarciapft.loaders.SerializedIndexLoader;
+import es.unex.giiis.ribw.jgarciapft.loaders.SpanishInverseThesaurusLoader;
+import es.unex.giiis.ribw.jgarciapft.loaders.SpanishThesaurusLoader;
 import es.unex.giiis.ribw.jgarciapft.marshallers.IDictionaryMarshaller;
 import es.unex.giiis.ribw.jgarciapft.marshallers.IndexFileMarshaller;
 import es.unex.giiis.ribw.jgarciapft.printers.ConsolePrinter;
@@ -12,8 +14,7 @@ import java.io.*;
 import java.text.Normalizer;
 import java.util.*;
 
-import static es.unex.giiis.ribw.jgarciapft.Config.SERIALIZED_TOKEN_DICTIONARY_FILENAME;
-import static es.unex.giiis.ribw.jgarciapft.Config.TOKEN_DELIMITERS;
+import static es.unex.giiis.ribw.jgarciapft.Config.*;
 
 /**
  * PC-Crawler implementation
@@ -25,9 +26,13 @@ public class Crawler {
     /* Ordered dictionary of tokens. Entries store the frequency of appearance of each token inside files within the
      * provided root hierarchy. Entries are ordered following lexicographically order of the tokens */
     private Map<String, Object> tokenFrequencyDictionary;
+    private Map<String, Object> thesaurus;
+    private Map<String, Object> inverseThesaurus;
 
     // Token dictionary loading strategy
     private IDictionaryLoader<String, Object> dictionaryLoader;
+    private IDictionaryLoader<String, Object> thesaurusLoader;
+    private IDictionaryLoader<String, Object> inverseThesaurusLoader;
     // Token dictionary serializer strategy
     private IDictionaryMarshaller<String, Object> dictionaryMarshaller;
     // Token dictionary printing strategy
@@ -38,7 +43,12 @@ public class Crawler {
      */
     public Crawler() {
         tokenFrequencyDictionary = new TreeMap<>();
+        thesaurus = new TreeMap<>();
+        inverseThesaurus = new TreeMap<>();
+
         dictionaryLoader = new SerializedIndexLoader();
+        thesaurusLoader = new SpanishThesaurusLoader();
+        inverseThesaurusLoader = new SpanishInverseThesaurusLoader();
         dictionaryMarshaller = new IndexFileMarshaller();
         dictionaryPrinter = new ConsolePrinter();
     }
@@ -46,16 +56,42 @@ public class Crawler {
     /**
      * Instantiates a crawler with an empty token dictionary and specific loading, saving and printing strategies
      *
-     * @param dictionaryLoader     Loading strategy
-     * @param dictionaryMarshaller Saving strategy
-     * @param dictionaryPrinter    Printing strategy
+     * @param dictionaryLoader       Loading strategy
+     * @param thesaurusLoader
+     * @param inverseThesaurusLoader
+     * @param dictionaryMarshaller   Saving strategy
+     * @param dictionaryPrinter      Printing strategy
      */
     public Crawler(IDictionaryLoader<String, Object> dictionaryLoader,
+                   IDictionaryLoader<String, Object> thesaurusLoader,
+                   IDictionaryLoader<String, Object> inverseThesaurusLoader,
                    IDictionaryMarshaller<String, Object> dictionaryMarshaller,
                    IDictionaryPrinter<String, Object> dictionaryPrinter) {
+        tokenFrequencyDictionary = new TreeMap<>();
+        thesaurus = new TreeMap<>();
+        inverseThesaurus = new TreeMap<>();
+
         this.dictionaryLoader = dictionaryLoader;
+        this.thesaurusLoader = thesaurusLoader;
+        this.inverseThesaurusLoader = inverseThesaurusLoader;
         this.dictionaryMarshaller = dictionaryMarshaller;
         this.dictionaryPrinter = dictionaryPrinter;
+    }
+
+    public void initialiseThesauri() {
+
+        Map<String, Object> loadedThesaurus = thesaurusLoader.load(new File(DEFAULT_THESAURUS_PATH));
+        Map<String, Object> loadedInverseThesaurus = inverseThesaurusLoader.load(new File(DEFAULT_INVERSE_THESAURUS_PATH));
+
+        // Guard against any error while loading the thesaurus
+
+        if (loadedThesaurus != null)
+            thesaurus = loadedThesaurus;
+
+        // Guard against any error while loading the inverse thesaurus
+
+        if (loadedThesaurus != null)
+            inverseThesaurus = loadedInverseThesaurus;
     }
 
     /**
@@ -83,6 +119,10 @@ public class Crawler {
      * @param rootPath The starting point in the system's filesystem
      */
     public void buildIndex(String rootPath) {
+
+        if (!areThesauriLoaded())
+            throw new IllegalStateException("The thesaurus, inverse thesaurus or both aren't loaded. Load them first " +
+                    "before attempting to build an inverted index");
 
         // FIFO list of captured files
         LinkedList<File> documentsQueue = new LinkedList<>();
@@ -163,13 +203,17 @@ public class Crawler {
 
                             String currentToken = tokenizer.nextToken();
 
-                            if (tokenFrequencyDictionary.containsKey(currentToken)) {
-                                // Increment frequency in 1
-                                tokenFrequencyDictionary.compute(currentToken,
-                                        (token, tokenFreqObj) -> new Integer(((Integer) tokenFreqObj).intValue() + 1));
-                            } else {
-                                // Create new token entry keeping the order of the entries
-                                tokenFrequencyDictionary.put(currentToken, new Integer(1));
+                            if (!inverseThesaurus.containsKey(currentToken) && thesaurus.containsKey(currentToken)) {
+
+                                if (tokenFrequencyDictionary.containsKey(currentToken)) {
+                                    // Increment frequency in 1
+                                    tokenFrequencyDictionary.compute(currentToken,
+                                            (token, tokenFreqObj) -> new Integer(((Integer) tokenFreqObj).intValue() + 1));
+                                } else {
+                                    // Create new token entry keeping the order of the entries
+                                    tokenFrequencyDictionary.put(currentToken, new Integer(1));
+                                }
+
                             }
                         }
                     }
@@ -200,12 +244,32 @@ public class Crawler {
         dictionaryPrinter.print(tokenFrequencyDictionary);
     }
 
+    private boolean areThesauriLoaded() {
+        return thesaurus.size() > 0 && inverseThesaurus.size() > 0;
+    }
+
     public IDictionaryLoader<String, Object> getDictionaryLoader() {
         return dictionaryLoader;
     }
 
     public void setDictionaryLoader(IDictionaryLoader<String, Object> dictionaryLoader) {
         this.dictionaryLoader = dictionaryLoader;
+    }
+
+    public IDictionaryLoader<String, Object> getThesaurusLoader() {
+        return thesaurusLoader;
+    }
+
+    public void setThesaurusLoader(IDictionaryLoader<String, Object> thesaurusLoader) {
+        this.thesaurusLoader = thesaurusLoader;
+    }
+
+    public IDictionaryLoader<String, Object> getInverseThesaurusLoader() {
+        return inverseThesaurusLoader;
+    }
+
+    public void setInverseThesaurusLoader(IDictionaryLoader<String, Object> inverseThesaurusLoader) {
+        this.inverseThesaurusLoader = inverseThesaurusLoader;
     }
 
     public IDictionaryMarshaller<String, Object> getDictionaryMarshaller() {

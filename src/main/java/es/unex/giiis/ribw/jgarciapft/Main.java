@@ -53,16 +53,20 @@ public class Main {
 
         // PARSE PROVIDED ARGUMENTS
 
-        boolean shouldLoadSavedDictionary = args[0].equals("-I"); // arg1 = Load an already built index
+        boolean shouldLoadSavedIndex = args[0].equals("-I"); // arg1 = Load an already built index
         String rootPath = args[args.length - 1]; // The root path will always be at the end of the args array
 
         // CRAWLER OPERATION
 
-        // Load an already built dictionary if requested
-        if (shouldLoadSavedDictionary) crawler.loadSerializedDictionary();
+        crawler.initialiseThesauri();
 
-        // Invoke the crawler's main event loop. Inverted index building
-        crawler.buildIndex(rootPath);
+        // Load an already built index if requested, otherwise build one
+
+        if (shouldLoadSavedIndex) {
+            crawler.loadSerializedDictionary();
+        } else {
+            crawler.buildIndex(rootPath);
+        }
 
         // Print the built (or loaded) inverted index
         crawler.printTokenDictionary();
@@ -88,7 +92,8 @@ public class Main {
                 "\n" +
                 "This is an iterative implementation of a crawler of text files intended to operate on local filesystems. This crawler will attempt to explore\n" +
                 "a given path and index the content of files with a compatible file extension (see ACCEPTED FILE EXTENSIONS), then it will show the frequency\n" +
-                "of each indexed token (see TOKEN DELIMITERS)\n" +
+                "of each indexed token (see TOKEN DELIMITERS). This crawler uses a pair of thesauri (regular and stopwords thesaurus) to filter which tokens" +
+                "it will index\n" +
                 "\n" +
                 "SEE ALSO\n" +
                 "\n" +

@@ -2,8 +2,8 @@
   <configuration default="false" name="Entire ws (loading dictionary)" type="Application" factoryName="Application">
     <option name="MAIN_CLASS_NAME" value="es.unex.giiis.ribw.jgarciapft.Main" />
     <module name="pc-crawler.main" />
-    <option name="PROGRAM_PARAMETERS" value="-I ." />
-    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/main/resources/crawler-sandbox" />
+    <option name="PROGRAM_PARAMETERS" value="-I resources\crawler-sandbox" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/main" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

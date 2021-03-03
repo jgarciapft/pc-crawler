@@ -15,4 +15,7 @@ public final class Config {
     // Name of the file containing the serialized token frequency dictionary
     public static final String SERIALIZED_TOKEN_DICTIONARY_FILENAME = "CRAWLERINDEX.idx";
 
+    public static final String DEFAULT_THESAURUS_PATH = "resources/Thesaurus_es_ES.txt";
+    public static final String DEFAULT_INVERSE_THESAURUS_PATH = "resources/stopwords_es.txt";
+
 }
