@@ -7,6 +7,7 @@ import java.util.Map;
 
 /**
  * Serializes the token dictionary and exports it to a file so it can be restored
+ *
  * @author Juan Pablo García Plaza Pérez (jgarciapft@alumnos.unex.es)
  */
 public class IndexFileMarshaller implements IDictionaryMarshaller<String, Object> {

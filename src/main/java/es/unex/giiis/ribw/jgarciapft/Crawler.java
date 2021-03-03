@@ -1,17 +1,17 @@
 package es.unex.giiis.ribw.jgarciapft;
 
 import es.unex.giiis.ribw.jgarciapft.loaders.IDictionaryLoader;
+import es.unex.giiis.ribw.jgarciapft.loaders.InverseThesaurusLoader;
 import es.unex.giiis.ribw.jgarciapft.loaders.SerializedIndexLoader;
-import es.unex.giiis.ribw.jgarciapft.loaders.SpanishInverseThesaurusLoader;
-import es.unex.giiis.ribw.jgarciapft.loaders.SpanishThesaurusLoader;
+import es.unex.giiis.ribw.jgarciapft.loaders.ThesaurusLoader;
 import es.unex.giiis.ribw.jgarciapft.marshallers.IDictionaryMarshaller;
 import es.unex.giiis.ribw.jgarciapft.marshallers.IndexFileMarshaller;
 import es.unex.giiis.ribw.jgarciapft.printers.ConsolePrinter;
 import es.unex.giiis.ribw.jgarciapft.printers.IDictionaryPrinter;
 import es.unex.giiis.ribw.jgarciapft.utils.FileExtensionUtils;
+import es.unex.giiis.ribw.jgarciapft.utils.NormalizationUtils;
 
 import java.io.*;
-import java.text.Normalizer;
 import java.util.*;
 
 import static es.unex.giiis.ribw.jgarciapft.Config.*;
@@ -26,12 +26,16 @@ public class Crawler {
     /* Ordered dictionary of tokens. Entries store the frequency of appearance of each token inside files within the
      * provided root hierarchy. Entries are ordered following lexicographically order of the tokens */
     private Map<String, Object> tokenFrequencyDictionary;
+    // Dictionary of tokens that will be indexed. Tokens outside this collections won't be indexed
     private Map<String, Object> thesaurus;
+    // Dictionary of tokens that won't be indexed (a.k.a stopwords). Used to accelerate token filtering
     private Map<String, Object> inverseThesaurus;
 
     // Token dictionary loading strategy
     private IDictionaryLoader<String, Object> dictionaryLoader;
+    // Thesaurus loading strategy
     private IDictionaryLoader<String, Object> thesaurusLoader;
+    // Inverse thesaurus loading strategy
     private IDictionaryLoader<String, Object> inverseThesaurusLoader;
     // Token dictionary serializer strategy
     private IDictionaryMarshaller<String, Object> dictionaryMarshaller;
@@ -47,8 +51,8 @@ public class Crawler {
         inverseThesaurus = new TreeMap<>();
 
         dictionaryLoader = new SerializedIndexLoader();
-        thesaurusLoader = new SpanishThesaurusLoader();
-        inverseThesaurusLoader = new SpanishInverseThesaurusLoader();
+        thesaurusLoader = new ThesaurusLoader();
+        inverseThesaurusLoader = new InverseThesaurusLoader();
         dictionaryMarshaller = new IndexFileMarshaller();
         dictionaryPrinter = new ConsolePrinter();
     }
@@ -78,7 +82,17 @@ public class Crawler {
         this.dictionaryPrinter = dictionaryPrinter;
     }
 
+    /**
+     * Loads into memory the thesaurus and inverse thesaurus from the designed default source files. This method should
+     * be called before attempting to build an index, otherwise, it will throw an exception
+     *
+     * @see Crawler#buildInvertedIndex(String)
+     * @see Config#DEFAULT_THESAURUS_PATH
+     * @see Config#DEFAULT_INVERSE_THESAURUS_PATH
+     */
     public void initialiseThesauri() {
+
+        // Attempt to load both thesauri from the designed default source files
 
         Map<String, Object> loadedThesaurus = thesaurusLoader.load(new File(DEFAULT_THESAURUS_PATH));
         Map<String, Object> loadedInverseThesaurus = inverseThesaurusLoader.load(new File(DEFAULT_INVERSE_THESAURUS_PATH));
@@ -114,18 +128,20 @@ public class Crawler {
 
     /**
      * Perform a full depth search for files starting from the given root path and exploring all sub-directories to
-     * build the inverted index. The index holds the frequency of each token
+     * build an inverted index. The index holds the frequency of each token
      *
      * @param rootPath The starting point in the system's filesystem
+     * @throws IllegalStateException If the thesaurus, inverse thesaurus or both aren't loaded
      */
-    public void buildIndex(String rootPath) {
+    public void buildInvertedIndex(String rootPath) throws IllegalStateException {
+
+        // Check the thesauri are loaded before building the index
 
         if (!areThesauriLoaded())
             throw new IllegalStateException("The thesaurus, inverse thesaurus or both aren't loaded. Load them first " +
                     "before attempting to build an inverted index");
 
-        // FIFO list of captured files
-        LinkedList<File> documentsQueue = new LinkedList<>();
+        LinkedList<File> documentsQueue = new LinkedList<>(); // FIFO list of captured files to be processed
 
         // Add the root element to the file's queue
 
@@ -174,25 +190,11 @@ public class Crawler {
 
                     while ((line = bufferedReader.readLine()) != null) {
 
-                        /*
-                         * Normalize each line before breaking it into tokens. The normalization pipeline first applies
-                         * Unicode Normalization Form D (NFD, Canonical Decomposition) to get an equivalent representation
-                         * of non-ASCII characters in the ASCII character set, then performs a lowercase replacement
-                         *
-                         * More info about Unicode Normalization within the Java JDK:
-                         *
-                         * https://stackoverflow.com/questions/4122170/java-change-%C3%A1%C3%A9%C5%91%C5%B1%C3%BA-to-aeouu
-                         * https://docs.oracle.com/javase/8/docs/api/java/text/Normalizer.Form.html#NFD
-                         * https://docs.oracle.com/javase/tutorial/i18n/text/normalizerapi.html
-                         */
-
-                        String normalisedLine = Normalizer.normalize(line, Normalizer.Form.NFD)
-                                // Remove the non-ASCII characters produced as a result of NFD Normalization
-                                .replaceAll("[^\\p{ASCII}]", "")
-                                .toLowerCase(Locale.ROOT);
+                        // Normalize each line before breaking it into tokens
+                        String normalizedLine = NormalizationUtils.normalizeStringNFD(line);
 
                         // Break down the normalized line into tokens using the statically specified token delimiter list
-                        StringTokenizer tokenizer = new StringTokenizer(normalisedLine, TOKEN_DELIMITERS);
+                        StringTokenizer tokenizer = new StringTokenizer(normalizedLine, TOKEN_DELIMITERS);
 
                         /*
                          * Each token either creates a new entry with frequency 1 in the dictionary if it wasn't already
@@ -203,7 +205,12 @@ public class Crawler {
 
                             String currentToken = tokenizer.nextToken();
 
+                            /* Filter tokens. A token that appears in the inverse thesaurus (a stopword) can be discarded.
+                             If it can't be discarded, check if it's present in the thesaurus */
+
                             if (!inverseThesaurus.containsKey(currentToken) && thesaurus.containsKey(currentToken)) {
+
+                                // The token is inside the thesaurus, process it
 
                                 if (tokenFrequencyDictionary.containsKey(currentToken)) {
                                     // Increment frequency in 1
@@ -213,7 +220,6 @@ public class Crawler {
                                     // Create new token entry keeping the order of the entries
                                     tokenFrequencyDictionary.put(currentToken, new Integer(1));
                                 }
-
                             }
                         }
                     }
@@ -244,6 +250,9 @@ public class Crawler {
         dictionaryPrinter.print(tokenFrequencyDictionary);
     }
 
+    /**
+     * @return If thesauri are properly loaded, that is, they hold at least 1 entry each
+     */
     private boolean areThesauriLoaded() {
         return thesaurus.size() > 0 && inverseThesaurus.size() > 0;
     }

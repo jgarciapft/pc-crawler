@@ -8,6 +8,7 @@ import static es.unex.giiis.ribw.jgarciapft.Config.ACCEPTED_FILE_EXTENSIONS_REGE
 
 /**
  * Utility class to deal with file extensions
+ *
  * @author Juan Pablo García Plaza Pérez (jgarciapft@alumnos.unex.es)
  */
 public class FileExtensionUtils {
