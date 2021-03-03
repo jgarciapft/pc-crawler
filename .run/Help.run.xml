@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Help" type="Application" factoryName="Application">
-    <option name="MAIN_CLASS_NAME" value="Crawler" />
+    <option name="MAIN_CLASS_NAME" value="es.unex.giiis.ribw.jgarciapft.Main" />
     <module name="pc-crawler.main" />
     <option name="PROGRAM_PARAMETERS" value="--help" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/main/resources/crawler-sandbox" />

@@ -7,3 +7,6 @@ out
 
 # Ignore IDEA config folder
 .idea
+
+# Ignore the default file for the serialized inverted index
+CRAWLERINDEX.idx

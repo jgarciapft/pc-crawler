@@ -1,9 +1,8 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Test path expression" type="Application" factoryName="Application">
-    <option name="MAIN_CLASS_NAME" value="Crawler" />
+    <option name="MAIN_CLASS_NAME" value="es.unex.giiis.ribw.jgarciapft.Main" />
     <module name="pc-crawler.main" />
-    <option name="PROGRAM_PARAMETERS" value="D:\00_Documentos\UEX\4_CURSO\RIBW\ACTIVIDADES\Actividad-2\crawler-sandbox" />
-    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/.." />
+    <option name="PROGRAM_PARAMETERS" value="D:\00_Documentos\UEX\4_CURSO\RIBW\ACTIVIDADES\pc-crawler\src\main\resources\crawler-sandbox" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

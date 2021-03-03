@@ -9,7 +9,7 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '6.1.0'
 }
 
-group 'unex.es.giiis'
+group 'unex.es.giiis.ribw.jgarciapft'
 version '1.0'
 
 repositories {
@@ -22,6 +22,6 @@ dependencies {
 
 jar {
     manifest {
-        attributes 'Main-Class': 'Crawler'
+        attributes 'Main-Class': 'es.unex.giiis.ribw.jgarciapft.Main'
     }
 }
