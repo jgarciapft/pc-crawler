@@ -13,8 +13,8 @@ public final class Config {
     // Which characters delimits tokens in accepted files processed by this crawler
     public static final String TOKEN_DELIMITERS = " .,:;!¡¿?\\/()[]{}\t|\"#*-+="; // Excludes (-) and (_)
 
-    // Name of the file containing the serialized token frequency dictionary
-    public static final String SERIALIZED_TOKEN_DICTIONARY_FILENAME = "CRAWLERINDEX.idx";
+    // Name of the file containing the serialized token frequency dictionary (inverted file)
+    public static final String INVERTED_FILE_FILENAME = "CRAWLERINDEX.idx";
 
     // Path to the location of the default thesaurus
     public static final String DEFAULT_THESAURUS_PATH = "resources/Thesaurus_es_ES.txt";

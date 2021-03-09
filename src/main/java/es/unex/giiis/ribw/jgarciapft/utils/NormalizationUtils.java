@@ -25,7 +25,7 @@ public class NormalizationUtils {
      * @return Normalized string
      */
     public static String normalizeStringNFD(String inputString) {
-        return Normalizer.normalize(inputString, Normalizer.Form.NFD)
+        return Normalizer.normalize(inputString.trim(), Normalizer.Form.NFD)
                 // Remove the non-ASCII characters produced as a result of NFD Normalization
                 .replaceAll("[^\\p{ASCII}]", "")
                 .toLowerCase(Locale.ROOT);

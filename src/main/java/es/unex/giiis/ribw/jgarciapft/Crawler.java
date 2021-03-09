@@ -1,13 +1,8 @@
 package es.unex.giiis.ribw.jgarciapft;
 
-import es.unex.giiis.ribw.jgarciapft.loaders.IDictionaryLoader;
-import es.unex.giiis.ribw.jgarciapft.loaders.InverseThesaurusLoader;
-import es.unex.giiis.ribw.jgarciapft.loaders.SerializedIndexLoader;
-import es.unex.giiis.ribw.jgarciapft.loaders.ThesaurusLoader;
-import es.unex.giiis.ribw.jgarciapft.marshallers.IDictionaryMarshaller;
-import es.unex.giiis.ribw.jgarciapft.marshallers.IndexFileMarshaller;
-import es.unex.giiis.ribw.jgarciapft.printers.ConsolePrinter;
-import es.unex.giiis.ribw.jgarciapft.printers.IDictionaryPrinter;
+import es.unex.giiis.ribw.jgarciapft.loaders.*;
+import es.unex.giiis.ribw.jgarciapft.marshallers.IInvertedIndexMarshaller;
+import es.unex.giiis.ribw.jgarciapft.marshallers.InvertedIndexMarshaller;
 import es.unex.giiis.ribw.jgarciapft.utils.FileExtensionUtils;
 import es.unex.giiis.ribw.jgarciapft.utils.NormalizationUtils;
 
@@ -23,63 +18,46 @@ import static es.unex.giiis.ribw.jgarciapft.Config.*;
  */
 public class Crawler {
 
-    /* Ordered dictionary of tokens. Entries store the frequency of appearance of each token inside files within the
-     * provided root hierarchy. Entries are ordered following lexicographically order of the tokens */
-    private Map<String, Object> tokenFrequencyDictionary;
+    /* Ordered dictionary of tokens (inverted index). Entries store the frequency of appearance of each token inside
+    files within the provided root hierarchy, globally and per document. Entries are ordered following
+    lexicographically order of the tokens */
+    private Map<String, Occurrences> invertedIndex;
+    // A structure to map documents to a unique identifier
+    private IDocumentCatalogue documentCatalog;
     // Dictionary of tokens that will be indexed. Tokens outside this collections won't be indexed
     private Map<String, Object> thesaurus;
     // Dictionary of tokens that won't be indexed (a.k.a stopwords). Used to accelerate token filtering
     private Map<String, Object> inverseThesaurus;
 
-    // Token dictionary loading strategy
-    private IDictionaryLoader<String, Object> dictionaryLoader;
+    /* A cached representation of the built (or loaded) inverted index managed by this crawler (see InvertedIndex)
+    It purpose is to avoid instantiation of new InveredIndex objects when the inverted index hasn't changed */
+    private InvertedIndex _cached_invertedIndex;
+
+    // Inverted file loading strategy
+    private IInvertedFileLoader invertedFileLoader;
     // Thesaurus loading strategy
     private IDictionaryLoader<String, Object> thesaurusLoader;
     // Inverse thesaurus loading strategy
     private IDictionaryLoader<String, Object> inverseThesaurusLoader;
-    // Token dictionary serializer strategy
-    private IDictionaryMarshaller<String, Object> dictionaryMarshaller;
-    // Token dictionary printing strategy
-    private IDictionaryPrinter<String, Object> dictionaryPrinter;
+    // Inverted file creation strategy
+    private IInvertedIndexMarshaller invertedIndexMarshaller;
 
     /**
      * Instantiates a crawler with an empty token dictionary and default loading, saving and printing strategies
+     * and default document's catalogue implementation
      */
     public Crawler() {
-        tokenFrequencyDictionary = new TreeMap<>();
+        invertedIndex = new TreeMap<>();
+        documentCatalog = new DocumentsLUT();
         thesaurus = new TreeMap<>();
         inverseThesaurus = new TreeMap<>();
 
-        dictionaryLoader = new SerializedIndexLoader();
+        _cached_invertedIndex = null;
+
+        invertedFileLoader = new InvertedFileLoader();
         thesaurusLoader = new ThesaurusLoader();
         inverseThesaurusLoader = new InverseThesaurusLoader();
-        dictionaryMarshaller = new IndexFileMarshaller();
-        dictionaryPrinter = new ConsolePrinter();
-    }
-
-    /**
-     * Instantiates a crawler with an empty token dictionary and specific loading, saving and printing strategies
-     *
-     * @param dictionaryLoader       Loading strategy
-     * @param thesaurusLoader
-     * @param inverseThesaurusLoader
-     * @param dictionaryMarshaller   Saving strategy
-     * @param dictionaryPrinter      Printing strategy
-     */
-    public Crawler(IDictionaryLoader<String, Object> dictionaryLoader,
-                   IDictionaryLoader<String, Object> thesaurusLoader,
-                   IDictionaryLoader<String, Object> inverseThesaurusLoader,
-                   IDictionaryMarshaller<String, Object> dictionaryMarshaller,
-                   IDictionaryPrinter<String, Object> dictionaryPrinter) {
-        tokenFrequencyDictionary = new TreeMap<>();
-        thesaurus = new TreeMap<>();
-        inverseThesaurus = new TreeMap<>();
-
-        this.dictionaryLoader = dictionaryLoader;
-        this.thesaurusLoader = thesaurusLoader;
-        this.inverseThesaurusLoader = inverseThesaurusLoader;
-        this.dictionaryMarshaller = dictionaryMarshaller;
-        this.dictionaryPrinter = dictionaryPrinter;
+        invertedIndexMarshaller = new InvertedIndexMarshaller();
     }
 
     /**
@@ -109,21 +87,23 @@ public class Crawler {
     }
 
     /**
-     * Load an already built index saved as a serialized representation of the token dictionary. The input file is
-     * specified in the global properties
+     * Load an already built index saved as a serialized representation of the token dictionary (inverted file).
+     * The input file is specified in the global properties
      *
-     * @see Config#SERIALIZED_TOKEN_DICTIONARY_FILENAME
+     * @see Config#INVERTED_FILE_FILENAME
      */
-    public void loadSerializedDictionary() {
+    public void loadInvertedFile() {
 
-        System.out.println("[INFO] Loading serialized token frequency dictionary");
+        System.out.println("[INFO] Loading inverted file");
 
-        Map<String, Object> loadedTokenDictionary = dictionaryLoader.load(new File(SERIALIZED_TOKEN_DICTIONARY_FILENAME));
+        InvertedFile loadedInvertedFile = invertedFileLoader.load(new File(INVERTED_FILE_FILENAME));
 
-        // Guard against any error while loading the dictionary
+        // Guard against any error while loading the inverted file
 
-        if (loadedTokenDictionary != null)
-            tokenFrequencyDictionary = loadedTokenDictionary;
+        if (loadedInvertedFile != null) {
+            invertedIndex = loadedInvertedFile.getInvertedIndex();
+            documentCatalog = loadedInvertedFile.getDocumentIdentifierMapper();
+        }
     }
 
     /**
@@ -186,6 +166,10 @@ public class Crawler {
                     BufferedReader bufferedReader = new BufferedReader(new FileReader(currentFile));
                     String line;
 
+                    // Register the current document with the document's catalogue and get its ID
+
+                    int currentDocumentID = documentCatalog.addDocument(currentFile.getAbsolutePath());
+
                     // Read the file line by line, normalize it and break it down into tokens at delimiters
 
                     while ((line = bufferedReader.readLine()) != null) {
@@ -210,15 +194,14 @@ public class Crawler {
 
                             if (!inverseThesaurus.containsKey(currentToken) && thesaurus.containsKey(currentToken)) {
 
-                                // The token is inside the thesaurus, process it
+                                // The token is considered in the thesaurus, so process it
 
-                                if (tokenFrequencyDictionary.containsKey(currentToken)) {
-                                    // Increment frequency in 1
-                                    tokenFrequencyDictionary.compute(currentToken,
-                                            (token, tokenFreqObj) -> new Integer(((Integer) tokenFreqObj).intValue() + 1));
+                                if (invertedIndex.containsKey(currentToken)) {
+                                    // Delegate frequency calculation
+                                    invertedIndex.get(currentToken).computeOccurrenceInDocument(currentDocumentID);
                                 } else {
-                                    // Create new token entry keeping the order of the entries
-                                    tokenFrequencyDictionary.put(currentToken, new Integer(1));
+                                    // Create new entry for this new token and delegate frequency calculation
+                                    invertedIndex.put(currentToken, new Occurrences(currentDocumentID));
                                 }
                             }
                         }
@@ -237,17 +220,29 @@ public class Crawler {
             }
         }
 
-        // Serialize the built token dictionary
+        // Serialize the built inverted index
 
         marshallTokenDictionary();
 
     }
 
     /**
-     * Execute the printing strategy specified by {@link Crawler#dictionaryPrinter}
+     * @return A complete representation of the inverted index built by this crawler that can be used to query terms.
+     * This object shouldn't be modified
      */
-    public void printTokenDictionary() {
-        dictionaryPrinter.print(tokenFrequencyDictionary);
+    public InvertedIndex exportInvertedIndex() {
+
+        /* The cached representation should be updated if the current one is null or the inverted index or the
+        document's catalogue has changed */
+
+        if (_cached_invertedIndex == null ||
+                !_cached_invertedIndex.getInvertedIndex().equals(invertedIndex) ||
+                !_cached_invertedIndex.getDocumentIdentifierMapper().equals(documentCatalog)) {
+
+            _cached_invertedIndex = new InvertedIndex(invertedIndex, documentCatalog);
+        }
+
+        return _cached_invertedIndex;
     }
 
     /**
@@ -257,12 +252,20 @@ public class Crawler {
         return thesaurus.size() > 0 && inverseThesaurus.size() > 0;
     }
 
-    public IDictionaryLoader<String, Object> getDictionaryLoader() {
-        return dictionaryLoader;
+    /**
+     * Serialize the built inverted index using the strategy specified by {@link Crawler#invertedIndexMarshaller}
+     */
+    private void marshallTokenDictionary() {
+        System.out.println("[INFO] Exporting the built inverted index");
+        invertedIndexMarshaller.marshall(invertedIndex, documentCatalog, new File(INVERTED_FILE_FILENAME));
     }
 
-    public void setDictionaryLoader(IDictionaryLoader<String, Object> dictionaryLoader) {
-        this.dictionaryLoader = dictionaryLoader;
+    public IInvertedFileLoader getInvertedFileLoader() {
+        return invertedFileLoader;
+    }
+
+    public void setInvertedFileLoader(IInvertedFileLoader invertedFileLoader) {
+        this.invertedFileLoader = invertedFileLoader;
     }
 
     public IDictionaryLoader<String, Object> getThesaurusLoader() {
@@ -281,27 +284,11 @@ public class Crawler {
         this.inverseThesaurusLoader = inverseThesaurusLoader;
     }
 
-    public IDictionaryMarshaller<String, Object> getDictionaryMarshaller() {
-        return dictionaryMarshaller;
+    public IInvertedIndexMarshaller getInvertedIndexMarshaller() {
+        return invertedIndexMarshaller;
     }
 
-    public void setDictionaryMarshaller(IDictionaryMarshaller<String, Object> dictionaryMarshaller) {
-        this.dictionaryMarshaller = dictionaryMarshaller;
-    }
-
-    public IDictionaryPrinter<String, Object> getDictionaryPrinter() {
-        return dictionaryPrinter;
-    }
-
-    public void setDictionaryPrinter(IDictionaryPrinter<String, Object> dictionaryPrinter) {
-        this.dictionaryPrinter = dictionaryPrinter;
-    }
-
-    /**
-     * Serialize the built token dictionary using the strategy specified by {@link Crawler#dictionaryMarshaller}
-     */
-    private void marshallTokenDictionary() {
-        System.out.println("[INFO] Exporting the built token frequency dictionary");
-        dictionaryMarshaller.marshall(tokenFrequencyDictionary, new File(SERIALIZED_TOKEN_DICTIONARY_FILENAME));
+    public void setInvertedIndexMarshaller(IInvertedIndexMarshaller invertedIndexMarshaller) {
+        this.invertedIndexMarshaller = invertedIndexMarshaller;
     }
 }
