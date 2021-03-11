@@ -1,21 +1,5 @@
 package es.unex.giiis.ribw.jgarciapft;
 
-import org.apache.tika.parser.asm.ClassParser;
-import org.apache.tika.parser.epub.EpubParser;
-import org.apache.tika.parser.html.HtmlParser;
-import org.apache.tika.parser.image.ImageParser;
-import org.apache.tika.parser.microsoft.OfficeParser;
-import org.apache.tika.parser.microsoft.ooxml.OOXMLParser;
-import org.apache.tika.parser.mp3.Mp3Parser;
-import org.apache.tika.parser.mp4.MP4Parser;
-import org.apache.tika.parser.odf.OpenDocumentParser;
-import org.apache.tika.parser.pdf.PDFParser;
-import org.apache.tika.parser.rtf.RTFParser;
-import org.apache.tika.parser.xml.XMLParser;
-
-import java.util.TreeMap;
-
-import static es.unex.giiis.ribw.jgarciapft.Config.TIKA_PARSERS;
 import static es.unex.giiis.ribw.jgarciapft.Config.TOKEN_DELIMITERS;
 
 /**
@@ -34,10 +18,14 @@ public class Main {
             return;
         }
 
+        System.out.println("--- PC-Crawler ------------------------------------------------");
+
         // PARSE PROVIDED ARGUMENTS
 
         boolean shouldLoadInvertedFile = args[0].equals("-I"); // arg1 = Load an already built inverted file
         String rootPath = args[args.length - 1]; // The root path will always be at the end of the args array
+
+        System.out.printf("\n\t Root path: %s\n\n", rootPath);
 
         // CRAWLER OPERATION
 

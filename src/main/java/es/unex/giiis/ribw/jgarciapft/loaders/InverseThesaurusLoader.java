@@ -6,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.TreeMap;
@@ -37,7 +38,7 @@ public class InverseThesaurusLoader implements IDictionaryLoader<String, Object>
 
             try {
 
-                BufferedReader bufferedReader = new BufferedReader(new FileReader(inverseThesaurusFile));
+                BufferedReader bufferedReader = new BufferedReader(new FileReader(inverseThesaurusFile, StandardCharsets.UTF_8));
                 String line;
 
                 // Attempt to read the only line of the source file and decompose it into stopwords

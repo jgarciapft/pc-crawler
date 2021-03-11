@@ -1,5 +1,6 @@
 package es.unex.giiis.ribw.jgarciapft;
 
+import java.io.Serializable;
 import java.util.Map;
 
 /**
@@ -8,22 +9,22 @@ import java.util.Map;
  *
  * @author Juan Pablo García Plaza Pérez (jgarciapft@alumnos.unex.es)
  */
-public class InvertedIndex {
+public class InvertedIndex implements Serializable {
 
     private final Map<String, Occurrences> invertedIndex;
-    private final IDocumentCatalogue documentIdentifierMapper;
+    private final IDocumentCatalogue documentCatalogue;
 
-    public InvertedIndex(Map<String, Occurrences> invertedIndex, IDocumentCatalogue documentIdentifierMapper) {
+    public InvertedIndex(Map<String, Occurrences> invertedIndex, IDocumentCatalogue documentCatalogue) {
         this.invertedIndex = invertedIndex;
-        this.documentIdentifierMapper = documentIdentifierMapper;
+        this.documentCatalogue = documentCatalogue;
     }
 
     public Map<String, Occurrences> getInvertedIndex() {
         return invertedIndex;
     }
 
-    public IDocumentCatalogue getDocumentIdentifierMapper() {
-        return documentIdentifierMapper;
+    public IDocumentCatalogue getDocumentCatalogue() {
+        return documentCatalogue;
     }
 
 }

@@ -6,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.TreeMap;
@@ -37,7 +38,7 @@ public class ThesaurusLoader implements IDictionaryLoader<String, Object> {
 
             try {
 
-                BufferedReader bufferedReader = new BufferedReader(new FileReader(thesaurusFile));
+                BufferedReader bufferedReader = new BufferedReader(new FileReader(thesaurusFile, StandardCharsets.UTF_8));
                 String line;
 
                 // Read the source file line by line, divide it into tokens and store them (ignoring synonyms and compound words)

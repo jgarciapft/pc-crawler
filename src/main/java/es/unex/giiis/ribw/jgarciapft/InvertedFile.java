@@ -11,11 +11,16 @@ import java.util.Map;
 public class InvertedFile implements Serializable {
 
     private Map<String, Occurrences> invertedIndex;
-    private IDocumentCatalogue documentIdentifierMapper;
+    private IDocumentCatalogue documentCatalogue;
 
-    public InvertedFile(Map<String, Occurrences> invertedIndex, IDocumentCatalogue documentIdentifierMapper) {
+    public InvertedFile(Map<String, Occurrences> invertedIndex, IDocumentCatalogue documentCatalogue) {
         this.invertedIndex = invertedIndex;
-        this.documentIdentifierMapper = documentIdentifierMapper;
+        this.documentCatalogue = documentCatalogue;
+    }
+
+    public InvertedFile(InvertedIndex source) {
+        invertedIndex = source.getInvertedIndex();
+        documentCatalogue = source.getDocumentCatalogue();
     }
 
     public Map<String, Occurrences> getInvertedIndex() {
@@ -26,11 +31,11 @@ public class InvertedFile implements Serializable {
         this.invertedIndex = invertedIndex;
     }
 
-    public IDocumentCatalogue getDocumentIdentifierMapper() {
-        return documentIdentifierMapper;
+    public IDocumentCatalogue getDocumentCatalogue() {
+        return documentCatalogue;
     }
 
-    public void setDocumentIdentifierMapper(IDocumentCatalogue documentIdentifierMapper) {
-        this.documentIdentifierMapper = documentIdentifierMapper;
+    public void setDocumentCatalogue(IDocumentCatalogue documentCatalogue) {
+        this.documentCatalogue = documentCatalogue;
     }
 }

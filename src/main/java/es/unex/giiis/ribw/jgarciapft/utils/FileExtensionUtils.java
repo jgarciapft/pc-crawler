@@ -57,10 +57,20 @@ public class FileExtensionUtils {
         else return false;
     }
 
+    /**
+     * @param file A structured or semi-structured file
+     * @return If the provided structured file can be analysed with a concrete Tika parser
+     * @see Config#TIKA_PARSERS
+     */
     public static boolean tikaHasFittingParser(File file) {
         return TIKA_PARSERS.containsKey(extractExtension(file));
     }
 
+    /**
+     * @param file A structured or semi-structured file
+     * @return A fitting Tika parser for the input file
+     * @see Config#TIKA_PARSERS
+     */
     @SuppressWarnings("unchecked")
     public static Class<Parser> tikaParserForFile(File file) {
         return (Class<Parser>) TIKA_PARSERS.get(extractExtension(file));

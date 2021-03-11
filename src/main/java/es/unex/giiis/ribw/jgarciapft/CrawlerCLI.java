@@ -7,6 +7,7 @@ import es.unex.giiis.ribw.jgarciapft.ranking.RankingCriterion;
 import es.unex.giiis.ribw.jgarciapft.utils.NormalizationUtils;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.TreeSet;
@@ -40,7 +41,7 @@ public class CrawlerCLI {
      */
     public void interactiveCLI() {
 
-        Scanner scanner = new Scanner(System.in); // To read user input
+        Scanner scanner = new Scanner(System.in, StandardCharsets.UTF_8); // To read user input
         int selectedOption; // Currently user selected option
 
         // Maintain an interactive session with the user until he/she chooses to exit
@@ -52,7 +53,12 @@ public class CrawlerCLI {
             printOptions();
             prompt();
 
-            selectedOption = scanner.nextInt();
+            try {
+                selectedOption = scanner.nextInt();
+            } catch (Exception e) {
+                selectedOption = OptionCodes.NOP;
+                scanner.next(); // Flush invalid input
+            }
 
             // Perform the user selected option
 
@@ -72,9 +78,12 @@ public class CrawlerCLI {
                     printInvertedIndex();
                     break;
 
+                case OptionCodes.EXIT:
+                    break;
+
                 default: // Invalid option catcher
 
-                    System.out.println("Invalid option");
+                    System.out.println("\nInvalid option");
             }
 
         } while (selectedOption != OptionCodes.EXIT);
@@ -113,7 +122,7 @@ public class CrawlerCLI {
 
             for (Map.Entry<Integer, Integer> rankedResult : supportTree) {
 
-                String documentFullPath = invertedIndex.getDocumentIdentifierMapper().getDocumentURLByID(rankedResult.getKey());
+                String documentFullPath = invertedIndex.getDocumentCatalogue().getDocumentURLByID(rankedResult.getKey());
                 String[] split = documentFullPath.split(File.separator.equals("\\") ? "\\\\" : File.separator);
                 String documentName = split[split.length - 1];
 
@@ -177,6 +186,7 @@ public class CrawlerCLI {
         private static final int EXIT = 0;
         private static final int RANKED_TERM_SEARCH = 1;
         private static final int PRINT_INVERTED_INDEX = 2;
+        private static final int NOP = 10;
 
     }
 }

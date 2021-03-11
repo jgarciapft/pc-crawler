@@ -14,6 +14,7 @@ import org.apache.tika.sax.BodyContentHandler;
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import static es.unex.giiis.ribw.jgarciapft.Config.*;
@@ -39,7 +40,7 @@ public class Crawler {
     private Map<String, Object> inverseThesaurus;
 
     /* A cached representation of the built (or loaded) inverted index managed by this crawler (see InvertedIndex)
-    It purpose is to avoid instantiation of new InveredIndex objects when the inverted index hasn't changed */
+    It purpose is to avoid instantiation of new InvertedIndex objects when the inverted index hasn't changed */
     private InvertedIndex _cached_invertedIndex;
 
     // Inverted file loading strategy
@@ -119,7 +120,7 @@ public class Crawler {
 
         if (loadedInvertedFile != null) {
             invertedIndex = loadedInvertedFile.getInvertedIndex();
-            documentCatalog = loadedInvertedFile.getDocumentIdentifierMapper();
+            documentCatalog = loadedInvertedFile.getDocumentCatalogue();
         } else {
             System.err.println("[ERROR] Couldn't load the inverted file. This crawler will build a new inverted index");
         }
@@ -184,11 +185,11 @@ public class Crawler {
                 // Add this document to the document catalogue and get its corresponding ID
                 int currentDocumentID = documentCatalog.addDocument(currentFile.getAbsolutePath());
 
-                // Get the file's nature
+                // Get the file's nature: 1) text based, 2) structured analysable by a concrete Tika parser 3) other structured type
 
-                if (FileExtensionUtils.isTextualFile(currentFile)) {
+                if (FileExtensionUtils.isTextualFile(currentFile)) { // 1) Textual file
 
-                    BufferedReader bufferedReader = new BufferedReader(new FileReader(currentFile));
+                    BufferedReader bufferedReader = new BufferedReader(new FileReader(currentFile, StandardCharsets.UTF_8));
                     String line;
 
                     // Read the file line by line and index each one
@@ -198,11 +199,11 @@ public class Crawler {
 
                     bufferedReader.close();
 
-                } else if (FileExtensionUtils.tikaHasFittingParser(currentFile)) {
+                } else if (FileExtensionUtils.tikaHasFittingParser(currentFile)) { // 2) structured file analysable by a concrete Tika parser
 
                     indexWithTikaParser(currentFile, currentDocumentID);
 
-                } else {
+                } else { // 3) Other type of structured file without a concrete Tika parser, use the automatic Tika parser
 
                     indexWithTikaAutoParser(currentFile, currentDocumentID);
 
@@ -220,6 +221,13 @@ public class Crawler {
 
     }
 
+    /**
+     * Feed non-structured text based content to the inverted index. The content is normalized and filtered with both a
+     * thesaurus and an inverse thesaurus before it is indexed.
+     *
+     * @param content    The textual content to be indexed
+     * @param documentID The identifier of the document which holds the provided content
+     */
     private void indexTextualContent(String content, int documentID) {
 
         // Normalize the textual content before breaking it into tokens
@@ -255,9 +263,20 @@ public class Crawler {
         }
     }
 
+    /**
+     * Wrapper call around {@link Crawler#indexTextualContent(String, int)} to extract the textual information from a
+     * structured or semi-structured file using a concrete Tika parser, then it is indexed. If the guessed Tika parser
+     * fails then Tika's automatic parser detection is leveraged via {@link Crawler#indexWithTikaAutoParser(File, int)}
+     *
+     * @param file       Input structured or semi-structured file
+     * @param documentID The identifier associated with the input file
+     * @see Config#TIKA_PARSERS
+     */
     private void indexWithTikaParser(File file, int documentID) {
 
         FileInputStream fileInputStream = null;
+
+        // Get the fitting Tika parser class for the input file
 
         Class<Parser> tikaParserClass = FileExtensionUtils.tikaParserForFile(file);
 
@@ -268,19 +287,30 @@ public class Crawler {
             fileInputStream = new FileInputStream(file);
             ParseContext parseContext = new ParseContext();
 
+            // Instantiate the fitting Tika parser from the retrieved class
+
             Parser tikaParser = tikaParserClass.newInstance();
+            System.out.printf("\t[INFO] With Tika parser => %s (%s)\n", tikaParserClass.getSimpleName(), tikaParserClass.toString());
+
+            // Get the textual content from the file using the Tika parser
 
             tikaParser.parse(fileInputStream, textualContentHandler, metadata, parseContext);
 
+            // Index the textual content
+
             indexTextualContent(textualContentHandler.toString(), documentID);
 
-        } catch (TikaException e) {
+        } catch (TikaException e) { // On failure use the automatic parser detection as a fallback mechanism
 
+            System.out.println("\t[WARNING] The chosen Tika parser failed. Using fallback Tika Automatic Parser");
             indexWithTikaAutoParser(file, documentID);
 
         } catch (InstantiationException | IllegalAccessException | IOException | SAXException e) {
             e.printStackTrace();
         } finally {
+
+            // Close the input file stream
+
             if (fileInputStream != null) {
                 try {
                     fileInputStream.close();
@@ -291,18 +321,28 @@ public class Crawler {
         }
     }
 
+    /**
+     * Wrapper call around {@link Crawler#indexTextualContent(String, int)} to extract the textual information from a
+     * structured or semi-structured file when no specific Tika parser is available, then it is indexed
+     *
+     * @param file       Input structured or semi-structured file
+     * @param documentID The identifier associated with the input file
+     */
     private void indexWithTikaAutoParser(File file, int documentID) {
 
         Tika tikaAutoParser = new Tika();
+        System.out.println("\t[INFO] With Tika Automatic Parser");
 
         try {
+
+            // Attempt to extract the textual content, delegating on Tika to decide the best parser, and indexing it
 
             indexTextualContent(tikaAutoParser.parseToString(file), documentID);
 
         } catch (IOException e) {
             e.printStackTrace();
         } catch (TikaException e) {
-            e.printStackTrace();
+            System.err.println("[ERROR] The file cannot interpreted by Tika. Ignoring it");
         }
 
     }
@@ -325,7 +365,7 @@ public class Crawler {
 
         if (_cached_invertedIndex == null ||
                 !_cached_invertedIndex.getInvertedIndex().equals(invertedIndex) ||
-                !_cached_invertedIndex.getDocumentIdentifierMapper().equals(documentCatalog)) {
+                !_cached_invertedIndex.getDocumentCatalogue().equals(documentCatalog)) {
 
             _cached_invertedIndex = new InvertedIndex(invertedIndex, documentCatalog);
         }
@@ -335,15 +375,22 @@ public class Crawler {
 
     /**
      * Serialize the built inverted index using the strategy specified by {@link Crawler#invertedIndexMarshaller} to
-     * create an inverted file
+     * create an inverted file. If the provided root path is a file then the inverted file will be stored next to this
+     * executable
      */
     private void createInvertedFile() {
 
-        String invertedFileURL = rootPath + File.separator + INVERTED_FILE_FILENAME;
+        // Calculated path to the inverted file
+        File invertedFile = new File(rootPath + File.separator + INVERTED_FILE_FILENAME);
 
-        System.out.println("[INFO] Creating inverted file at (" + invertedFileURL + ")");
+        // If the provided root path is a file then store the inverted file next to this executable
 
-        invertedIndexMarshaller.marshall(invertedIndex, documentCatalog, new File(invertedFileURL));
+        if (new File(rootPath).isFile())
+            invertedFile = new File(INVERTED_FILE_FILENAME);
+
+        System.out.println("[INFO] Creating inverted file at (" + invertedFile.getAbsolutePath() + ")");
+
+        invertedIndexMarshaller.marshall(exportInvertedIndex(), invertedFile);
     }
 
     public IInvertedFileLoader getInvertedFileLoader() {

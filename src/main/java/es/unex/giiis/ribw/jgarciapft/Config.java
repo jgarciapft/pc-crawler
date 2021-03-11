@@ -1,7 +1,7 @@
 package es.unex.giiis.ribw.jgarciapft;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.tika.parser.Parser;
-import org.apache.tika.parser.asm.ClassParser;
 import org.apache.tika.parser.epub.EpubParser;
 import org.apache.tika.parser.html.HtmlParser;
 import org.apache.tika.parser.image.ImageParser;
@@ -25,7 +25,7 @@ import java.util.TreeMap;
 public final class Config {
 
     // RegEx specifying which file extensions correspond to text based files
-    public static final String TEXTUAL_FILE_EXTENSIONS_REGEXP = "txt|c|h|cpp|hpp|py|cs|js|sql";
+    public static final String TEXTUAL_FILE_EXTENSIONS_REGEXP = "txt|java|c|h|cpp|hpp|py|cs|js|sql";
 
     // Which characters delimits tokens in accepted files processed by this crawler
     public static final String TOKEN_DELIMITERS = " .,:;!¡¿?\\/()[]{}\t|\"#*-+="; // Excludes (-) and (_)
@@ -39,12 +39,12 @@ public final class Config {
     // Path to the location of the default inverse thesaurus
     public static final String DEFAULT_INVERSE_THESAURUS_PATH = "resources/stopwords_es.txt";
 
-    // Catalogue of file extensions and their respective Tika parser classes
-    public static final Map<String, Class<? extends Parser>> TIKA_PARSERS = new TreeMap<>();
+    // Catalogue of Tika parser classes associated with the file extensions that they parse. The structure is immutable
+    public static Map<String, Class<? extends Parser>> TIKA_PARSERS = new TreeMap<>();
 
     static {
 
-        // Populate the catalogue of parsers
+        // Populate the catalogue of Tika parsers
 
         TIKA_PARSERS.put("xml", XMLParser.class);
         TIKA_PARSERS.put("html", HtmlParser.class);
@@ -65,7 +65,10 @@ public final class Config {
         TIKA_PARSERS.put("gif", ImageParser.class);
         TIKA_PARSERS.put("bmp", ImageParser.class);
         TIKA_PARSERS.put("mp4", MP4Parser.class);
-        TIKA_PARSERS.put("java", ClassParser.class);
+
+        // Lock the structure by creating an immutable version an overwriting the assignment
+
+        TIKA_PARSERS = ImmutableMap.copyOf(TIKA_PARSERS);
     }
 
 }

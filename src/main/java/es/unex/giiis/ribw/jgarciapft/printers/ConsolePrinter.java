@@ -36,7 +36,7 @@ public class ConsolePrinter implements IInvertedIndexPrinter {
 
             for (Map.Entry<Integer, Integer> occurrence : occurrences.getOccurrences().entrySet()) {
 
-                String documentURL = invertedIndex.getDocumentIdentifierMapper().getDocumentURLByID(occurrence.getKey());
+                String documentURL = invertedIndex.getDocumentCatalogue().getDocumentURLByID(occurrence.getKey());
                 /* Windows platforms use backslash (\) to delimit resources inside paths, which is a metacharacter in RegEx language.
                 If the current platform uses backslashes escape it as a RegEx pattern to detect a single backslash */
                 String[] split = documentURL.split(File.separator.equals("\\") ? "\\\\" : File.separator);
