@@ -5,6 +5,13 @@ import es.unex.giiis.ribw.jgarciapft.marshallers.IInvertedIndexMarshaller;
 import es.unex.giiis.ribw.jgarciapft.marshallers.InvertedIndexMarshaller;
 import es.unex.giiis.ribw.jgarciapft.utils.FileExtensionUtils;
 import es.unex.giiis.ribw.jgarciapft.utils.NormalizationUtils;
+import org.apache.tika.Tika;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.sax.BodyContentHandler;
+import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.util.*;
@@ -18,6 +25,8 @@ import static es.unex.giiis.ribw.jgarciapft.Config.*;
  */
 public class Crawler {
 
+    // Path to the folder hierarchy that is the starting point for this crawler (absolute or relative)
+    private final String rootPath;
     /* Ordered dictionary of tokens (inverted index). Entries store the frequency of appearance of each token inside
     files within the provided root hierarchy, globally and per document. Entries are ordered following
     lexicographically order of the tokens */
@@ -45,8 +54,12 @@ public class Crawler {
     /**
      * Instantiates a crawler with an empty token dictionary and default loading, saving and printing strategies
      * and default document's catalogue implementation
+     *
+     * @param rootPath The folder hierarchy that is the starting point for this crawler
      */
-    public Crawler() {
+    public Crawler(String rootPath) {
+        this.rootPath = rootPath;
+
         invertedIndex = new TreeMap<>();
         documentCatalog = new DocumentsLUT();
         thesaurus = new TreeMap<>();
@@ -88,21 +101,27 @@ public class Crawler {
 
     /**
      * Load an already built index saved as a serialized representation of the token dictionary (inverted file).
-     * The input file is specified in the global properties
+     * The expected file name is specified in the global properties and it should be located directly at the root of
+     * the folder hierarchy
      *
      * @see Config#INVERTED_FILE_FILENAME
      */
     public void loadInvertedFile() {
 
-        System.out.println("[INFO] Loading inverted file");
+        // The expected URL of the inverted file based on the root path
+        String expectedInvertedFileURL = rootPath + File.separator + INVERTED_FILE_FILENAME;
 
-        InvertedFile loadedInvertedFile = invertedFileLoader.load(new File(INVERTED_FILE_FILENAME));
+        System.out.println("[INFO] Attempting to load an inverted file from (" + expectedInvertedFileURL + ")");
+
+        InvertedFile loadedInvertedFile = invertedFileLoader.load(new File(expectedInvertedFileURL));
 
         // Guard against any error while loading the inverted file
 
         if (loadedInvertedFile != null) {
             invertedIndex = loadedInvertedFile.getInvertedIndex();
             documentCatalog = loadedInvertedFile.getDocumentIdentifierMapper();
+        } else {
+            System.err.println("[ERROR] Couldn't load the inverted file. This crawler will build a new inverted index");
         }
     }
 
@@ -150,68 +169,43 @@ public class Crawler {
 
                 // Check the directory isn't empty before adding the retrieved files to the queue
 
-                if (childrenFiles != null && childrenFiles.length > 0)
+                if (childrenFiles != null && childrenFiles.length > 0) {
+                    System.out.printf("[FOLDER] Queuing %d file(s) from (%s)\n", childrenFiles.length, currentFile.getAbsolutePath());
                     documentsQueue.addAll(Arrays.asList(childrenFiles));
-
+                }
             }
 
-            // CASE 3 - Current file is actually a readable file. Break down the file into tokens and index them
+            // CASE 3 - Current file is actually a readable file and not an inverted file
 
-            else if (currentFile.isFile()) try {
+            else if (currentFile.isFile() && !currentFile.getName().equals(INVERTED_FILE_FILENAME)) try {
 
-                // Check that the current file can be processed by this crawler
+                System.out.printf("[DOCUMENT] %s (%s)\n", currentFile.getName(), currentFile.getAbsolutePath());
 
-                if (FileExtensionUtils.fileEndsWithAcceptedExtension(currentFile)) {
+                // Add this document to the document catalogue and get its corresponding ID
+                int currentDocumentID = documentCatalog.addDocument(currentFile.getAbsolutePath());
+
+                // Get the file's nature
+
+                if (FileExtensionUtils.isTextualFile(currentFile)) {
 
                     BufferedReader bufferedReader = new BufferedReader(new FileReader(currentFile));
                     String line;
 
-                    // Register the current document with the document's catalogue and get its ID
+                    // Read the file line by line and index each one
 
-                    int currentDocumentID = documentCatalog.addDocument(currentFile.getAbsolutePath());
-
-                    // Read the file line by line, normalize it and break it down into tokens at delimiters
-
-                    while ((line = bufferedReader.readLine()) != null) {
-
-                        // Normalize each line before breaking it into tokens
-                        String normalizedLine = NormalizationUtils.normalizeStringNFD(line);
-
-                        // Break down the normalized line into tokens using the statically specified token delimiter list
-                        StringTokenizer tokenizer = new StringTokenizer(normalizedLine, TOKEN_DELIMITERS);
-
-                        /*
-                         * Each token either creates a new entry with frequency 1 in the dictionary if it wasn't already
-                         * included, or increments its frequency count by 1
-                         */
-
-                        while (tokenizer.hasMoreTokens()) {
-
-                            String currentToken = tokenizer.nextToken();
-
-                            /* Filter tokens. A token that appears in the inverse thesaurus (a stopword) can be discarded.
-                             If it can't be discarded, check if it's present in the thesaurus */
-
-                            if (!inverseThesaurus.containsKey(currentToken) && thesaurus.containsKey(currentToken)) {
-
-                                // The token is considered in the thesaurus, so process it
-
-                                if (invertedIndex.containsKey(currentToken)) {
-                                    // Delegate frequency calculation
-                                    invertedIndex.get(currentToken).computeOccurrenceInDocument(currentDocumentID);
-                                } else {
-                                    // Create new entry for this new token and delegate frequency calculation
-                                    invertedIndex.put(currentToken, new Occurrences(currentDocumentID));
-                                }
-                            }
-                        }
-                    }
+                    while ((line = bufferedReader.readLine()) != null)
+                        indexTextualContent(line, currentDocumentID);
 
                     bufferedReader.close();
 
+                } else if (FileExtensionUtils.tikaHasFittingParser(currentFile)) {
+
+                    indexWithTikaParser(currentFile, currentDocumentID);
+
                 } else {
-                    System.out.println("[INFO] Invalid extension (" + FileExtensionUtils.getFileExtension(currentFile) + ")." +
-                            " Skipping (" + currentFile + ")");
+
+                    indexWithTikaAutoParser(currentFile, currentDocumentID);
+
                 }
             } catch (FileNotFoundException e) {
                 System.err.println("[ERROR] The file (" + currentFile + ") disappeared before it could be processed");
@@ -222,8 +216,102 @@ public class Crawler {
 
         // Serialize the built inverted index
 
-        marshallTokenDictionary();
+        createInvertedFile();
 
+    }
+
+    private void indexTextualContent(String content, int documentID) {
+
+        // Normalize the textual content before breaking it into tokens
+        String normalizedContent = NormalizationUtils.normalizeStringNFD(content);
+
+        // Break down the normalized content into tokens using the statically specified token delimiter list
+        StringTokenizer tokenizer = new StringTokenizer(normalizedContent, TOKEN_DELIMITERS);
+
+        /*
+         * Each token either creates a new entry with frequency 1 in the dictionary if it wasn't already
+         * included, or increments its frequency count by 1
+         */
+
+        while (tokenizer.hasMoreTokens()) {
+
+            String currentToken = tokenizer.nextToken();
+
+            /* Filter tokens. A token that appears in the inverse thesaurus (a stopword) can be discarded.
+             If it can't be discarded, check if it's present in the thesaurus */
+
+            if (!inverseThesaurus.containsKey(currentToken) && thesaurus.containsKey(currentToken)) {
+
+                // The token is considered in the thesaurus, so process it
+
+                if (invertedIndex.containsKey(currentToken)) {
+                    // Delegate frequency calculation
+                    invertedIndex.get(currentToken).computeOccurrenceInDocument(documentID);
+                } else {
+                    // Create new entry for this new token and delegate frequency calculation
+                    invertedIndex.put(currentToken, new Occurrences(documentID));
+                }
+            }
+        }
+    }
+
+    private void indexWithTikaParser(File file, int documentID) {
+
+        FileInputStream fileInputStream = null;
+
+        Class<Parser> tikaParserClass = FileExtensionUtils.tikaParserForFile(file);
+
+        try {
+
+            BodyContentHandler textualContentHandler = new BodyContentHandler();
+            Metadata metadata = new Metadata();
+            fileInputStream = new FileInputStream(file);
+            ParseContext parseContext = new ParseContext();
+
+            Parser tikaParser = tikaParserClass.newInstance();
+
+            tikaParser.parse(fileInputStream, textualContentHandler, metadata, parseContext);
+
+            indexTextualContent(textualContentHandler.toString(), documentID);
+
+        } catch (TikaException e) {
+
+            indexWithTikaAutoParser(file, documentID);
+
+        } catch (InstantiationException | IllegalAccessException | IOException | SAXException e) {
+            e.printStackTrace();
+        } finally {
+            if (fileInputStream != null) {
+                try {
+                    fileInputStream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private void indexWithTikaAutoParser(File file, int documentID) {
+
+        Tika tikaAutoParser = new Tika();
+
+        try {
+
+            indexTextualContent(tikaAutoParser.parseToString(file), documentID);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (TikaException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    /**
+     * @return If thesauri are properly loaded, that is, they hold at least 1 entry each
+     */
+    private boolean areThesauriLoaded() {
+        return thesaurus.size() > 0 && inverseThesaurus.size() > 0;
     }
 
     /**
@@ -246,18 +334,16 @@ public class Crawler {
     }
 
     /**
-     * @return If thesauri are properly loaded, that is, they hold at least 1 entry each
+     * Serialize the built inverted index using the strategy specified by {@link Crawler#invertedIndexMarshaller} to
+     * create an inverted file
      */
-    private boolean areThesauriLoaded() {
-        return thesaurus.size() > 0 && inverseThesaurus.size() > 0;
-    }
+    private void createInvertedFile() {
 
-    /**
-     * Serialize the built inverted index using the strategy specified by {@link Crawler#invertedIndexMarshaller}
-     */
-    private void marshallTokenDictionary() {
-        System.out.println("[INFO] Exporting the built inverted index");
-        invertedIndexMarshaller.marshall(invertedIndex, documentCatalog, new File(INVERTED_FILE_FILENAME));
+        String invertedFileURL = rootPath + File.separator + INVERTED_FILE_FILENAME;
+
+        System.out.println("[INFO] Creating inverted file at (" + invertedFileURL + ")");
+
+        invertedIndexMarshaller.marshall(invertedIndex, documentCatalog, new File(invertedFileURL));
     }
 
     public IInvertedFileLoader getInvertedFileLoader() {

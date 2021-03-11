@@ -9,4 +9,4 @@ out
 .idea
 
 # Ignore the default file for the serialized inverted index
-CRAWLERINDEX.idx
+.PCCRAWLER.idx

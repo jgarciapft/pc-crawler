@@ -1,10 +1,25 @@
 package es.unex.giiis.ribw.jgarciapft;
 
-import static es.unex.giiis.ribw.jgarciapft.Config.ACCEPTED_FILE_EXTENSIONS_REGEXP;
+import org.apache.tika.parser.asm.ClassParser;
+import org.apache.tika.parser.epub.EpubParser;
+import org.apache.tika.parser.html.HtmlParser;
+import org.apache.tika.parser.image.ImageParser;
+import org.apache.tika.parser.microsoft.OfficeParser;
+import org.apache.tika.parser.microsoft.ooxml.OOXMLParser;
+import org.apache.tika.parser.mp3.Mp3Parser;
+import org.apache.tika.parser.mp4.MP4Parser;
+import org.apache.tika.parser.odf.OpenDocumentParser;
+import org.apache.tika.parser.pdf.PDFParser;
+import org.apache.tika.parser.rtf.RTFParser;
+import org.apache.tika.parser.xml.XMLParser;
+
+import java.util.TreeMap;
+
+import static es.unex.giiis.ribw.jgarciapft.Config.TIKA_PARSERS;
 import static es.unex.giiis.ribw.jgarciapft.Config.TOKEN_DELIMITERS;
 
 /**
- * RIBW 2020/21 - PC-Crawler: Parte 3
+ * RIBW 2020/21 - PC-Crawler
  *
  * @author Juan Pablo García Plaza Pérez (jgarciapft@alumnos.unex.es)
  */
@@ -19,14 +34,14 @@ public class Main {
             return;
         }
 
-        Crawler pcCrawler = new Crawler(); // PC Crawler initialised with defaults
-
         // PARSE PROVIDED ARGUMENTS
 
         boolean shouldLoadInvertedFile = args[0].equals("-I"); // arg1 = Load an already built inverted file
         String rootPath = args[args.length - 1]; // The root path will always be at the end of the args array
 
         // CRAWLER OPERATION
+
+        Crawler pcCrawler = new Crawler(rootPath); // PC Crawler initialised with defaults
 
         // Load an already built inverted index if requested, otherwise build one
 
@@ -67,15 +82,14 @@ public class Main {
                 "\n" +
                 "DESCRIPTION\n" +
                 "\n" +
-                "This is an iterative implementation of a crawler of text files intended to operate on local filesystems. This crawler will attempt to explore\n" +
-                "a given path and index the content of files with a compatible file extension (see ACCEPTED FILE EXTENSIONS), storing the total and partial frequencies\n" +
-                "of each indexed token (see TOKEN DELIMITERS). The result is the construction of an inverted index associated with the given path\n" +
+                "This is an iterative single threaded implementation of a crawler of text files intended to operate on local filesystems. This crawler will attempt to explore\n" +
+                "a given path and index the content of all readable files, storing the total and partial frequencies of each indexed token (see TOKEN DELIMITERS).\n" +
+                "The result is the construction of an inverted index associated with the given path\n" +
                 "\n" +
                 "This crawler uses a pair of thesauri (regular and stopwords thesaurus) to filter which tokens it will index\n" +
                 "\n" +
                 "SEE ALSO\n" +
                 "\n" +
-                "\tACCEPTED FILE EXTENSIONS: " + ACCEPTED_FILE_EXTENSIONS_REGEXP + "\n" +
                 "\tTOKEN DELIMITERS: " + TOKEN_DELIMITERS + "\n"
         );
     }

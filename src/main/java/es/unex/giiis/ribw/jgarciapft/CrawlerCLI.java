@@ -71,6 +71,10 @@ public class CrawlerCLI {
 
                     printInvertedIndex();
                     break;
+
+                default: // Invalid option catcher
+
+                    System.out.println("Invalid option");
             }
 
         } while (selectedOption != OptionCodes.EXIT);
